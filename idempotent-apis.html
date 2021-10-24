@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+
+    <title>Idempotent APIs</title>
+
+    <meta
+      name="description"
+      content="Slides for Idempotent APIs presentation"
+    />
+    <meta name="author" content="Motiejus Ėringis" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="stylesheet" href="reveal.js/dist/reset.css" />
+    <link rel="stylesheet" href="reveal.js/dist/reveal.css" />
+    <link rel="stylesheet" href="reveal.js/dist/theme/black.css" id="theme" />
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="reveal.js/plugin/highlight/monokai.css" />
+  </head>
+
+  <body>
+    <div class="reveal">
+      <!-- Any section element inside of this container is displayed as a slide -->
+      <div class="slides">
+        <section>
+          <h1>Idempotent APIs</h1>
+        </section>
+
+        <section>
+          <h2>Double submit problem</h2>
+          <ul>
+            <div class="fragment">
+              <li>I can recall a couple of times when I was impacted</li>
+            </div>
+            <div class="fragment">
+              <li>Can we handle this client side?</li>
+            </div>
+            <div class="fragment">
+              <li>
+                No, because the network is unreliable (<a
+                  href="https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing"
+                  >1st fallacy of distributed computing </a
+                >)
+              </li>
+            </div>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Networking related failure modes</h2>
+          <ul>
+            <li>Initial connection (✔)</li>
+            <li>
+              Operation executed in the server-side, failure to receive response
+              (🔥)
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Tom Scott explains it well</h2>
+          <iframe
+            width="560"
+            height="315"
+            src="https://www.youtube.com/embed/IP-rGJKSZ3s"
+            title="YouTube video player"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
+          ></iframe>
+        </section>
+
+        <section><h1>We have to make our APIs idempotent</h1></section>
+
+        <section>
+          <h2>What is idempotence?</h2>
+
+          <div class="fragment">
+            <p>
+              Operations that can be applied multiple times without changing the
+              result beyond the initial application
+            </p>
+          </div>
+
+          <div class="fragment">
+            <p>abs(x) = abs(abs(x))</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>Idempotence benefits</h2>
+          <ul>
+            <li>
+              Safely retry requests
+              <ul>
+                <li>Improve reliability, handle intermittent errors</li>
+              </ul>
+            </li>
+            <li>Avoid duplicate actions</li>
+          </ul>
+        </section>
+
+        <section>
+          <h1>Implementing idempotent APIs</h1>
+        </section>
+
+        <section>
+          <h2>Almost all HTTP verbs are idempotent</h2>
+          <div class="fragment">
+            <p>It is all about the POST</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>Attaching client-side id</h2>
+          <div class="fragment">
+            <p>
+              <a
+                href="https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/"
+                >Idempotecy-Key IETF draft</a
+              >:
+            </p>
+            <pre
+              data-id="code-animation"
+              class="language-txt"
+            ><code class="hljs" data-trim>
+                Idempotency-Key: "8e03978e-40d5-43e8-bc93-6894a57f9324"
+              </code></pre>
+          </div>
+          <div class="fragment">
+            <p>
+              Other approach: make it part of the body (<a
+                href="https://news.ycombinator.com/item?id=27731784"
+                >Hacker News discussion</a
+              >)
+            </p>
+          </div>
+          <aside class="notes">
+            Stripe payments processor likes to make it more automagical with
+            headers and libraries and Google makes it explicit part of the
+            request.
+          </aside>
+        </section>
+
+        <section data-auto-animate>
+          <h2 data-id="code-title">Server-side implementation</h2>
+          <pre
+            data-id="code-animation"
+            class="language-csharp"
+          ><code class="hljs" data-trim data-line-numbers>
+            public class Entity {
+                public int Id { get; set; }
+            }
+                      </code></pre>
+          <p>
+            <a
+              href="https://app.pluralsight.com/course-player?clipId=24f402d8-d98e-4579-a78f-def8043fc347"
+              >Fundamentals of Distributed Systems (Michael Perry,
+              Pluralsight)</a
+            >
+          </p>
+        </section>
+
+        <section data-auto-animate>
+          <h2 data-id="code-title">Server-side implementation</h2>
+          <pre
+            data-id="code-animation"
+            class="language-csharp"
+          ><code class="hljs" data-trim data-line-numbers>
+                  public class Entity {
+                      public int Id { get; set; }
+                      [Required]
+                      public Guid Guid { get; set; }
+                  }
+                          </code></pre>
+        </section>
+
+        <section data-auto-animate>
+          <h2 data-id="code-title">Server-side implementation</h2>
+          <pre
+            data-id="code-animation"
+            class="language-csharp"
+          ><code class="hljs" data-trim data-line-numbers>
+                public class Entity {
+                    public int Id { get; set; }
+                    [Required]
+                    public Guid Guid { get; set; }
+                }
+
+                public class Context : DbContext
+                {
+                    protected override void OnModelCreating(ModelBuilder modelBuilder)
+                    {
+                        modelBuilder.Entity&lt;Entity&gt;
+                            .HasAlternateKey(v => new { v.Guid });
+                    }
+                }
+                        </code></pre>
+        </section>
+
+        <section>
+          <h2>Client-side - retries</h2>
+          <p>Recommended exponential back-off policy for .NET clients:</p>
+          <pre
+            data-id="code-animation"
+            class="language-txt"
+          ><code class="hljs" data-trim>
+            Polly.Contrib.WaitAndRetry - DecorrelatedJitterBackoffV2
+        </code></pre>
+        </section>
+
+        <section>
+          <h2>References</h2>
+          <ul>
+            <li>
+              <a href="https://en.wikipedia.org/wiki/Idempotence"
+                >https://en.wikipedia.org/wiki/Idempotence</a
+              >
+            </li>
+            <li>
+              <a href="https://www.youtube.com/watch?v=IP-rGJKSZ3s"
+                >The Two Generals’ Problem (Tom Scott, YouTube)</a
+              >
+            </li>
+            <li>
+              <a href="https://stripe.com/blog/idempotency"
+                >https://stripe.com/blog/idempotency</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://app.pluralsight.com/course-player?clipId=24f402d8-d98e-4579-a78f-def8043fc347"
+                >Fundamentals of Distributed Systems (Michael Perry,
+                Pluralsight)</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing"
+                >https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing</a
+              >
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <script src="reveal.js/dist/reveal.js"></script>
+    <script src="reveal.js/plugin/zoom/zoom.js"></script>
+    <script src="reveal.js/plugin/notes/notes.js"></script>
+    <script src="reveal.js/plugin/search/search.js"></script>
+    <script src="reveal.js/plugin/markdown/markdown.js"></script>
+    <script src="reveal.js/plugin/highlight/highlight.js"></script>
+    <script>
+      // Also available as an ES module, see:
+      // https://revealjs.com/initialization/
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        center: true,
+        hash: true,
+
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [
+          RevealZoom,
+          RevealNotes,
+          RevealSearch,
+          RevealMarkdown,
+          RevealHighlight,
+        ],
+      });
+    </script>
+  </body>
+</html>
