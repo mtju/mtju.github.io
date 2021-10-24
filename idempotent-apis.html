@@ -273,6 +273,29 @@
                         </code></pre>
         </section>
 
+        <section data-auto-animate>
+          <h2 data-id="code-title">Server-side implementation</h2>
+          <pre
+            data-id="code-animation"
+            class="language-csharp"
+          ><code class="hljs" data-trim data-line-numbers="|1-4|2|6-9|10-14">
+                var entityId = await _context.Entities
+                    .Where(e => e.Guid == inputGuid)
+                    .Select(e => e.Id)
+                    .SingleOrDefaultAsync();
+
+                if (entityId == 0)
+                {
+                    _context.Add(entity);
+                }
+                else
+                {
+                    entity.Id = entityId;
+                    _context.Update(entity);
+                }
+                          </code></pre>
+        </section>
+
         <section>
           <h2>Client-side - retries</h2>
           <p>Recommended exponential back-off policy for .NET clients:</p>
