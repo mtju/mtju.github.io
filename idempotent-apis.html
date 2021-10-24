@@ -114,7 +114,73 @@
         </section>
 
         <section>
-          <h2>Almost all HTTP verbs are idempotent</h2>
+          <h1>Majority of HTTP verbs are idempotent</h1>
+        </section>
+
+        <section data-auto-animate>
+          <table>
+            <thead>
+              <tr data-id="1">
+                <th>Method</th>
+                <th>Idempotent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-id="2">
+                <td>CONNECT</td>
+                <td>no</td>
+              </tr>
+              <tr>
+                <td>DELETE</td>
+                <td>yes</td>
+              </tr>
+              <tr>
+                <td>GET</td>
+                <td>yes</td>
+              </tr>
+              <tr>
+                <td>HEAD</td>
+                <td>yes</td>
+              </tr>
+              <tr>
+                <td>OPTIONS</td>
+                <td>yes</td>
+              </tr>
+              <tr data-id="3">
+                <td>POST</td>
+                <td>no</td>
+              </tr>
+              <tr>
+                <td>PUT</td>
+                <td>yes</td>
+              </tr>
+              <tr>
+                <td>TRACE</td>
+                <td>yes</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section data-auto-animate>
+          <table>
+            <thead>
+              <tr data-id="1">
+                <th>Method</th>
+                <th>Idempotent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-id="2">
+                <td>CONNECT</td>
+                <td>no</td>
+              </tr>
+              <tr data-id="3">
+                <td>POST</td>
+                <td>no</td>
+              </tr>
+            </tbody>
+          </table>
           <div class="fragment">
             <p>It is all about the POST</p>
           </div>
@@ -126,7 +192,7 @@
             <p>
               <a
                 href="https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/"
-                >Idempotecy-Key IETF draft</a
+                >Idempotency-Key IETF draft</a
               >:
             </p>
             <pre
