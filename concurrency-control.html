@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+
+    <title>Concurrency Control</title>
+
+    <meta
+      name="description"
+      content="Slides for Concurrency Control presentation"
+    />
+    <meta name="author" content="Motiejus Ėringis" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="stylesheet" href="reveal.js/dist/reset.css" />
+    <link rel="stylesheet" href="reveal.js/dist/reveal.css" />
+    <link rel="stylesheet" href="reveal.js/dist/theme/black.css" id="theme" />
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="reveal.js/plugin/highlight/monokai.css" />
+  </head>
+
+  <body>
+    <div class="reveal">
+      <!-- Any section element inside of this container is displayed as a slide -->
+      <div class="slides">
+        <section>
+          <h1>Concurrency Control</h1>
+        </section>
+
+        <section>
+          <h2>Concurrency issues</h2>
+
+          <ul>
+            <li>Lost update</li>
+            <li>Dirty read</li>
+            <li>Non-repeatable read</li>
+            <li>Phantom read</li>
+            <li>Missing or Double reads</li>
+            <li>Deadlock</li>
+          </ul>
+
+          <aside class="notes">
+            <li>
+              Lost update - Updated entry is overwritten by 2nd transaction w/o
+              it being aware that the entry was updated
+            </li>
+            <li>
+              Dirty read - Transaction one is updating entry but at the end
+              decides to rollback and 2nd transaction reads the changed entry
+              meanwhile
+            </li>
+            <li>
+              Non-repeatable read - read should be repeatable during single
+              transaction but it was changed by 2nd transaction
+            </li>
+            <li>
+              Phantom read - similar to non-repeatable read but for quantity of
+              records
+            </li>
+            <li>
+              Missing or Double reads - 1st transaction is reading table by
+              index and 2nd transaction causes record to be moved ahead of
+              cursor and causes it to be read again
+            </li>
+            <li>
+              Deadlock - Tasks permanently block each other. Lock escalation:
+              read locks are shared, exclusive locks needed to update. When both
+              transactions try to escape their read lock to a write lock -
+              deadlock happens. Database will choose the victim in a deadlock
+            </li>
+          </aside>
+        </section>
+
+        <section><h1>Approaches to concurrency control</h1></section>
+
+        <section>
+          <h2>Optimistic concurrency control</h2>
+          <ul>
+            <li>No locks when data is read</li>
+            <li>On save check if data has changed since it was read</li>
+            <li>Transaction is rolled back when conflict is detected</li>
+            <li>
+              Use when:
+              <ul>
+                <li>Chance of conflict is <b>low</b></li>
+                <li>Rollback cost <b>&lt;</b> data locking cost</li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Pessimistic concurrency control</h2>
+          <ul>
+            <li>Locks used to prevent data modifications</li>
+            <li>Other users cannot perform actions until lock is released</li>
+            <li>
+              Use when:
+              <ul>
+                <li>Chance of conflict is <b>high</b></li>
+                <li>Rollback cost <b>&gt;</b> data locking cost</li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Patterns of Enterprise Application Architecture</h2>
+          <p>
+            A book by Martin Fowler describes these Offline Concurrency
+            Patterns:
+          </p>
+          <ul>
+            <li>Optimistic Offline Lock</li>
+            <li>Pessimistic Offline Lock</li>
+            <li>Coarse Grained Lock</li>
+            <li>Implicit Lock</li>
+          </ul>
+        </section>
+
+        <section>
+          <section>
+            <h2>Optimistic Offline Lock</h2>
+
+            <ul>
+              <li>Conflicts detected just before save</li>
+              <li>The easiest locking pattern to implement</li>
+              <li>Assumes chance of conflict is low</li>
+              <li>Prevents lost updates</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>Flow</h3>
+            <pre class="mermaid">
+              flowchart LR
+                get-data[Get data with version] --> modify-data[Modify data and submit];
+                modify-data --> check-version{Does version match the one in DB?}
+                check-version -->|Yes| commit[Increment version and commit];
+                check-version -->|No| rollback[Rollback];
+            </pre>
+          </section>
+
+          <section>
+            <h2>Optimistic Offline Lock Implementation</h2>
+          </section>
+
+          <section>
+            <h2>HTTP ETag (Entity Tag)</h2>
+            <ul>
+              <li>Optional HTTP header</li>
+              <li>Allows caches to be more efficient and save bandwidth</li>
+              <li>Can also be used for optimistic concurrency control</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Typical ETag Usage</h2>
+            <p>
+              Server will add ETag header in its responses: <br /><code
+                >ETag: "686897696a7c876b7e"</code
+              >
+              (strong) <br />or <br /><code>ETag: W/"686897696a7c876b7e"</code>
+              (weak)
+            </p>
+          </section>
+
+          <section>
+            <h2>Typical ETag Usage: caching</h2>
+            <ul>
+              <li>
+                Add header in your GET request: <br /><code
+                  >If-None-Match: "686897696a7c876b7e"</code
+                >
+              </li>
+              <li>
+                Response if cached version is still good: <br /><code
+                  >HTTP 304 Not Modified</code
+                >
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Typical ETag Usage: concurrency</h2>
+            <ul>
+              <li>
+                Add header in your PUT/DELETE request: <br /><code
+                  >If-None-Match: "686897696a7c876b7e"</code
+                >
+              </li>
+              <li>
+                Response if conflict detected: <br /><code
+                  >HTTP 412 Precondition Failed</code
+                >
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Passing version in body, hypermedia and URIs</h2>
+            <iframe
+              width="560"
+              height="315"
+              src="https://www.youtube.com/embed/2Nk3kCCyu3A?start=538"
+              title="YouTube video player"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+            ></iframe>
+
+            <aside class="notes">
+              As with Idempotency-Key, you might want to make this an explicit
+              part of your business logic and reduce coupling with HTTP.
+            </aside>
+          </section>
+
+          <section>
+            <h2>Back-end: SQL</h2>
+            <pre
+              data-id="code-animation"
+              class="language-sql"
+            ><code class="hljs" data-trim data-line-numbers>
+              UPDATE SomeTable
+              SET SomeColumn = 'NewValue'
+              WHERE Id = 123 AND Version = 3
+            </code></pre>
+            <p>0 updated rows = rollback</p>
+          </section>
+
+          <section>
+            <h2>Back-end: Entity Framework</h2>
+            <p>Entity Framework has built-in support for optimistic locking</p>
+            <p>Add <code>RowVersion</code> field to your entities:</p>
+            <pre
+              data-id="code-animation"
+              class="language-csharp"
+            ><code class="hljs" data-trim data-line-numbers>
+            [Timestamp]
+            public byte[] RowVersion { get; set; }
+            </code></pre>
+            <div class="fragment">
+              <p>
+                EF will include <code>RowVersion</code> in
+                <code>WHERE</code> clause of updates and deletes.
+              </p>
+            </div>
+            <div class="fragment">
+              <p>On conflict <code>DbConcurrencyException</code> is thrown</p>
+            </div>
+          </section>
+
+          <section>
+            <h2>Back-end: Entity Framework</h2>
+            <p>
+              You can choose to use other columns for concurrency control using
+              fluent API or attributes.
+            </p>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Pessimistic Offline Lock</h2>
+            <p>
+              <em
+                >Prevents conflicts between concurrent business transactions by
+                allowing only one business transaction at a time to access
+                data</em
+              >
+            </p>
+          </section>
+
+          <section>
+            <h2>Types of pessimistic locks</h2>
+            <ul>
+              <li>
+                Exclusive write lock
+                <ul>
+                  <li>Writers block writers</li>
+                </ul>
+              </li>
+              <li>
+                Exclusive read lock
+                <ul>
+                  <li>Reader blocks others</li>
+                </ul>
+              </li>
+              <li>
+                Read/write lock
+                <ul>
+                  <li>Writers block readers</li>
+                  <li>Readers block writers</li>
+                </ul>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h1>Demo</h1>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Coarse Grained Lock</h2>
+            <p><em>Locks a set of related objects with a single lock</em></p>
+            <p class="fragment">
+              Example: we need to lock a customer and his/her addresses at once
+            </p>
+          </section>
+
+          <section><h1>Shared Lock: Optimistic</h1></section>
+
+          <section>
+            <pre class="mermaid">
+              erDiagram
+              CUSTOMER ||--|{ ADDRESS : ""
+              ADDRESS ||--|{ VERSION : ""
+              CUSTOMER ||--|{ VERSION : ""
+            </pre>
+          </section>
+
+          <section><h1>Shared Lock: Pessimistic</h1></section>
+
+          <section>
+            <pre class="mermaid">
+              erDiagram
+              CUSTOMER ||--|{ ADDRESS : ""
+              ADDRESS ||--|{ VERSION : ""
+              VERSION ||--|| LOCK : ""
+              CUSTOMER ||--|{ VERSION : ""
+            </pre>
+          </section>
+
+          <section><h1>Root Lock: Optimistic</h1></section>
+
+          <section>
+            <pre class="mermaid">
+              erDiagram
+              CUSTOMER ||--|{ ADDRESS : ""
+              CUSTOMER ||--|{ VERSION : ""
+            </pre>
+          </section>
+
+          <section>
+            <h2>Considerations</h2>
+            <ul>
+              <li>
+                Root lock has better storage efficiency but worse performance
+                due to more joins
+              </li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h2>Implicit Lock</h2>
+            <p>
+              <em
+                >Allows framework or layer supertype code to acquire offline
+                locks</em
+              >
+            </p>
+            <ul>
+              <li class="fragment">
+                Do not allow developers to bypass locking logic by creating a
+                framework
+              </li>
+              <li class="fragment">
+                Example: create generic base repository class with locking logic
+                included
+              </li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <h2>References</h2>
+          <ul>
+            <li>
+              <a
+                href="https://app.pluralsight.com/library/courses/enterprise-patterns-concurrency-business-applications/table-of-contents"
+                >Enterprise Patterns: Concurrency in Business Applications
+                (Pluralsight)</a
+              >
+            </li>
+            <li>
+              <a href="https://en.wikipedia.org/wiki/HTTP_ETag"
+                >HTTP ETag (Wikipedia)</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://app.pluralsight.com/library/courses/designing-restful-web-apis/table-of-contents"
+                >Designing RESTful Web APIs (Pluralsight)</a
+              >
+            </li>
+            <li>
+              <a href="https://martinfowler.com/eaaCatalog/index.html"
+                >Catalog of Patterns of Enterprise Application Architecture -
+                Offline Concurrency Patterns</a
+              >
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <script src="reveal.js/dist/reveal.js"></script>
+    <script src="reveal.js/plugin/zoom/zoom.js"></script>
+    <script src="reveal.js/plugin/notes/notes.js"></script>
+    <script src="reveal.js/plugin/search/search.js"></script>
+    <script src="reveal.js/plugin/markdown/markdown.js"></script>
+    <script src="reveal.js/plugin/highlight/highlight.js"></script>
+    <script>
+      // Also available as an ES module, see:
+      // https://revealjs.com/initialization/
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        center: true,
+        hash: true,
+
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [
+          RevealZoom,
+          RevealNotes,
+          RevealSearch,
+          RevealMarkdown,
+          RevealHighlight,
+        ],
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>
